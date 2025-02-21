@@ -1,5 +1,5 @@
-"use-client";
-import { FC, ReactNode, useState, useEffect } from "react";
+"use client";
+import { FC, ReactNode, useEffect, useState } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -17,8 +17,11 @@ const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
   }, []);
 
   if (!mounted) return null; // Prevents SSR mismatches
+
   const wallets = [new PhantomWalletAdapter()];
+
   const endpoint = web3.clusterApiUrl("devnet");
+
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets}>
