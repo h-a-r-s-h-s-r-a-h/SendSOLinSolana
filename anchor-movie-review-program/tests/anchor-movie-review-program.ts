@@ -23,6 +23,36 @@ describe("anchor-movie-review-program", () => {
     program.programId
   );
 
+  const commentText = {
+    comment: "This is the best movie i have ever seen!",
+    id: "12345",
+  };
+
+  const commentText2 = {
+    comment: "This is the worst movie !",
+    id: "123456",
+  };
+  const updatedComment = "much amazing!";
+  const [commentPda] = anchor.web3.PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("comment"),
+      Buffer.from(movie.title),
+      provider.wallet.publicKey.toBuffer(),
+      Buffer.from(commentText.id),
+    ],
+    program.programId
+  );
+
+  const [commentPda2] = anchor.web3.PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("comment"),
+      Buffer.from(movie.title),
+      provider.wallet.publicKey.toBuffer(),
+      Buffer.from(commentText2.id),
+    ],
+    program.programId
+  );
+
   const [mint] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("mint")],
     program.programId
@@ -68,6 +98,7 @@ describe("anchor-movie-review-program", () => {
       throw error;
     }
   });
+
   it("updates a movie review", async () => {
     const newDescription = "Wow this is new";
     const newRating = 4;
@@ -103,6 +134,64 @@ describe("anchor-movie-review-program", () => {
       }
     } catch (error) {
       console.error("Error deleting movie review:", error);
+      throw error;
+    }
+  });
+
+  it("adds a comment to a movie", async () => {
+    try {
+      await program.methods
+        .addComment(movie.title, commentText.comment, commentText.id)
+        .accounts({})
+        .rpc();
+
+      const commentAccount = await program.account.commentAccountState.fetch(
+        commentPda
+      );
+      expect(commentAccount.commenter.toString()).to.equal(
+        provider.wallet.publicKey.toString()
+      );
+      expect(commentAccount.commentText).to.equal(commentText.comment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      throw error;
+    }
+  });
+  it("adds another comment to a movie", async () => {
+    try {
+      await program.methods
+        .addComment(movie.title, commentText2.comment, commentText2.id)
+        .accounts({})
+        .rpc();
+
+      const commentAccount = await program.account.commentAccountState.fetch(
+        commentPda2
+      );
+      expect(commentAccount.commenter.toString()).to.equal(
+        provider.wallet.publicKey.toString()
+      );
+      expect(commentAccount.commentText).to.equal(commentText2.comment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      throw error;
+    }
+  });
+
+  it("update comment to a movie", async () => {
+    try {
+      await program.methods
+        .updateComment(movie.title, commentText2.id, updatedComment)
+        .rpc();
+
+      const commentAccount = await program.account.commentAccountState.fetch(
+        commentPda2
+      );
+      expect(commentAccount.commenter.toString()).to.equal(
+        provider.wallet.publicKey.toString()
+      );
+      expect(commentAccount.commentText).to.equal(updatedComment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
       throw error;
     }
   });

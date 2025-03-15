@@ -6,7 +6,7 @@ pub mod constants;
 
 pub use constants::*;
 
-declare_id!("ALL6TxAGF9tpgrBV8WQMzfcs52XSBFo3kLJ7iJn52UjJ");
+declare_id!("2bR1ukzArMpx3KJ5iVs8wjJbfueNj51hSfEJ8Y9Fes6V");
 
 #[program]
 pub mod anchor_movie_review_program {
@@ -57,7 +57,6 @@ pub mod anchor_movie_review_program {
             10 * 10 ^ 6,
         )?;
 
-        msg!("Minted tokens");
         Ok(())
     }
 
@@ -93,6 +92,38 @@ pub mod anchor_movie_review_program {
         Ok(())
     }
 
+    pub fn add_comment(
+        ctx: Context<AddComment>,
+        movie_title: String,
+        comment_text: String,
+        comment_id: String,
+    ) -> Result<()> {
+        let comment = &mut ctx.accounts.comment;
+
+        comment.commenter = ctx.accounts.commenter.key();
+        comment.movie_title = movie_title;
+        comment.comment_text = comment_text;
+        comment.timestamp = Clock::get()?.unix_timestamp;
+        comment.comment_id = comment_id;
+
+        msg!("Comment added successfully!");
+        Ok(())
+    }
+
+    pub fn update_comment(
+        ctx: Context<UpdateComment>,
+        _movie_title: String,
+        _comment_id: String,
+        new_comment_text: String,
+    ) -> Result<()> {
+        let comment = &mut ctx.accounts.comment;
+        comment.comment_text = new_comment_text;
+        comment.timestamp = Clock::get()?.unix_timestamp;
+
+        msg!("Comment updated successfully!");
+        Ok(())
+    }
+
     pub fn initialize_token_mint(_ctx: Context<InitializeMint>) -> Result<()> {
         msg!("Token mint initialized");
         Ok(())
@@ -104,10 +135,10 @@ pub mod anchor_movie_review_program {
 pub struct AddMovieReview<'info> {
     #[account(
         init,
-        seeds=[title.as_bytes(), initializer.key().as_ref()],
+        seeds=[title.as_bytes(),initializer.key().as_ref()],
         bump,
-        payer = initializer,
-        space = MovieAccountState::INIT_SPACE + title.len() + description.len()
+        payer=initializer,
+        space=MovieAccountState::INIT_SPACE + title.len() +description.len()
     )]
     pub movie_review: Account<'info, MovieAccountState>,
     #[account(mut)]
@@ -132,7 +163,7 @@ pub struct AddMovieReview<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(title: String)]
+#[instruction(title:String)]
 pub struct UpdateMovieReview<'info> {
     #[account(
         mut,
@@ -150,7 +181,7 @@ pub struct UpdateMovieReview<'info> {
 pub struct DeleteMovieReview<'info> {
     #[account(
         mut,
-        seeds=[title.as_bytes(), initializer.key().as_ref()],
+        seeds=[title.as_bytes(),initializer.key().as_ref()],
         bump,
         close=initializer
     )]
@@ -167,14 +198,48 @@ pub struct InitializeMint<'info> {
         seeds=["mint".as_bytes()],
         bump,
         payer = user,
-        mint::decimals = 6,
-        mint::authority = mint,
+        mint::decimals=6,
+        mint::authority=mint
     )]
     pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(movie_title: String, comment_text: String, comment_id:String)]
+pub struct AddComment<'info> {
+    #[account(
+        init,
+        seeds = ["comment".as_bytes(),movie_title.as_bytes(), commenter.key().as_ref(), comment_id.as_bytes()],
+        bump,
+        payer = commenter,
+        space = 8 + 32 + (4 + movie_title.len()) + (4 + comment_text.len()) + (4 + comment_id.len()) + 8
+    )]
+    pub comment: Account<'info, CommentAccountState>,
+
+    #[account(mut)]
+    pub commenter: Signer<'info>, // The user adding the comment
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(movie_title: String,comment_id:String)]
+pub struct UpdateComment<'info> {
+    #[account(
+        mut,
+        seeds = ["comment".as_bytes(),movie_title.as_bytes(), commenter.key().as_ref(), comment_id.as_bytes()],
+        bump,
+        // has_one = commenter // Ensures only the original commenter can update
+    )]
+    pub comment: Account<'info, CommentAccountState>,
+
+    #[account(mut)]
+    pub commenter: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -186,6 +251,15 @@ pub struct MovieAccountState {
     pub description: String,
 }
 
+#[account]
+pub struct CommentAccountState {
+    pub commenter: Pubkey,
+    pub movie_title: String,
+    pub comment_text: String,
+    pub timestamp: i64,
+    pub comment_id: String,
+}
+
 impl Space for MovieAccountState {
     const INIT_SPACE: usize =
         ANCHOR_DISCRIMINATOR + PUBKEY_SIZE + U8_SIZE + STRING_LENGTH_PREFIX + STRING_LENGTH_PREFIX;
@@ -193,7 +267,7 @@ impl Space for MovieAccountState {
 
 #[error_code]
 enum MovieReviewError {
-    #[msg("Rating must be between 1 and 5")]
+    #[msg("Rating must hbe between 1 and 5")]
     InvalidRating,
     #[msg("Movie Title too long")]
     TitleTooLong,
